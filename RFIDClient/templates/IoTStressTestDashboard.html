@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Stress Test Dashboard</title>
+</head>
+<body>
+    <div class="container">
+        <h3>IoT Stress Test</h3>
+
+        <label>Platform:</label>
+        <select id="platform">
+            <option value="">Select Platform</option>
+            <option value="esp32">esp32</option>
+            <option value="arduino_r4">arduino_r4</option>
+        </select>
+
+        <label>Test ID:</label>
+        <input id="test_id" type="text">
+
+        <label>Clients:</label>
+        <input id="clients" type="number" value="1">
+
+        <label>Requests per client:</label>
+        <input id="requests" type="number" value="50">
+
+        <br><br>
+
+        <button onclick="runStress()">Run Stress Test</button>
+
+        <div id="stressResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h3>Get IoT Stress Test Measurements</h3>
+
+        <label>Test ID:</label>
+        <input id="filter_test_id" type="text">
+
+        <button onclick="loadMeasurements()">Load Measurements</button>
+
+        <br><br>
+
+        <div class="container">
+            <h3>IoT Simulation Test Summary</h3>
+            <div id="summaryContainer"></div>
+        </div>
+
+        <div class="container">
+            <h3>IoT Request Logs</h3>
+            <table border="1" id="requestLogTable">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Test ID</th>
+                        <th>Latency (ms)</th>
+                        <th>Error</th>
+                        <th>Error Type</th>
+                        <th>Free RAM</th>
+                        <th>Min Free RAM</th>
+                        <th>Computation Time (μs)</th>
+                        <th>Complexity</th>
+                        <th>WiFi RSSI</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ----------------------------------------
+        // Run stress test with specified parameters
+        // ----------------------------------------
+        window.runStress = async function() {
+
+          const platform = document.getElementById("platform").value;
+          const testID = document.getElementById("test_id").value;
+          const clients = document.getElementById("clients").value;
+          const requests = document.getElementById("requests").value;
+
+          if (!platform || !testID) {
+            alert("Please enter both Platform and Test ID");
+            return;
+          }
+
+          document.getElementById("stressResult").innerText =
+            "Running stress test...";
+
+
+          try {
+
+            const res = await fetch('/arduino/iot-stress-test/', {
+
+              method: "POST",
+
+              headers: {
+                "Content-Type": "application/json"
+              },
+
+              body: JSON.stringify({
+                platform: platform,
+                test_id: testID,
+                clients: clients,
+                requests: requests
+              })
+
+            });
+
+            const data = await res.json();
+            const result = data.data;
+
+            document.getElementById("stressResult").innerText =
+              "Total requests: " + result.total_requests + "\n" +
+              "Average latency: " + result.avg_latency.toFixed(2) + " ms\n" +
+              "Min latency: " + result.min_latency.toFixed(2) + " ms\n" +
+              "Max latency: " + result.max_latency.toFixed(2) + " ms\n" +
+              "Requests/sec: " + result.requests_per_sec.toFixed(2) + "\n" +
+              "Errors: " + result.error_count;
+
+          }
+
+          catch (err) {
+
+            document.getElementById("stressResult").innerText =
+              "Stress test failed";
+
+          }
+
+        }
+
+        // ----------------------------------------
+        // Load measurements for a specific test ID
+        // ----------------------------------------
+        window.loadMeasurements = async function() {
+
+            const testID = document.getElementById("filter_test_id").value;
+
+            if (!testID) {
+                alert("Please enter a Test ID");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/arduino/iot-stress-test-results/?filter_test_id=${testID}`);
+                const data = await res.json();
+
+                if (data.status === "success") {
+                    // Populate IoTStressTestSummary dynamically
+                    const summary = data.summary;
+                    const summaryContainer = document.getElementById("summaryContainer");
+                    summaryContainer.innerHTML = ""; // Clear previous content
+
+                    const fields = {
+                        "Platform": summary.platform || "-",
+                        "Test ID": summary.test_id || "-",
+                        "Clients": summary.client_count || "-",
+                        "Requests per Client": summary.req_per_client || "-",
+                        "Total Requests": summary.total_requests || "-",
+                        "Average Latency (ms)": summary.avg_latency?.toFixed(2) || "-",
+                        "Min Latency (ms)": summary.min_latency?.toFixed(2) || "-",
+                        "Max Latency (ms)": summary.max_latency?.toFixed(2) || "-",
+                        "P50 Latency (ms)": summary.p50_latency?.toFixed(2) || "-",
+                        "P95 Latency (ms)": summary.p95_latency?.toFixed(2) || "-",
+                        "P99 Latency (ms)": summary.p99_latency?.toFixed(2) || "-",
+                        "Requests/sec": summary.requests_per_sec?.toFixed(2) || "-",
+                        "Error Count": summary.error_count || "-",
+                        "Created At": summary.created_at || "-"
+                    };
+
+                    for (const [key, value] of Object.entries(fields)) {
+                        const p = document.createElement("p");
+                        p.innerHTML = `<strong>${key}:</strong> ${value}`;
+                        summaryContainer.appendChild(p);
+                    }
+
+                    // Populate IoTRequestLog table
+                    const logs = data.request_logs;
+                    const tableBody = document.querySelector("#requestLogTable tbody");
+                    tableBody.innerHTML = "";
+
+                    logs.forEach(log => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML =
+                            `<td>${log.platform}</td>` +
+                            `<td>${log.test_id}</td>` +
+                            `<td>${log.latency?.toFixed(2) || "-"}</td>` +
+                            `<td>${log.error ? "Yes" : "No"}</td>` +
+                            `<td>${log.error_type || "-"}</td>` +
+                            `<td>${log.free_ram !== null ? log.free_ram : "-"}</td>` +
+                            `<td>${log.min_free_ram !== null ? log.min_free_ram : "-"}</td>` +
+                            `<td>${log.computation_time?.toFixed(2) || "-"}</td>` +
+                            `<td>${log.complexity || "-"}</td>` +
+                            `<td>${log.wifi_rssi !== null ? log.wifi_rssi : "-"}</td>` +
+                            `<td>${log.created_at}</td>`;
+                        tableBody.appendChild(tr);
+                    });
+                } else {
+                    alert(data.message || "Failed to load data");
+                }
+            } catch (err) {
+                alert("Error loading data: " + err);
+            }
+
+        }
+
+    </script>
+</body>
+</html>

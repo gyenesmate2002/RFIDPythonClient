@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RFID Scan Dashboard</title>
+</head>
+<body>
+    <div class="container">
+        <h2>RFID Live Scan Status</h2>
+        <div id="liveStatus">No recent scan</div>
+    </div>
+
+    <div class="container">
+        <h2>Get RFID Measurements</h2>
+
+        <label>Test ID:</label>
+        <input id="test_id" type="text">
+
+        <button onclick="loadRFIDTable()">Load Measurements</button>
+
+        <br><br>
+
+        <table border="1" id="rfidTable">
+            <thead>
+                <tr>
+                    <th>Platform</th>
+                    <th>Test ID</th>
+                    <th>RFID Reaction Time (μs)</th>
+                    <th>HTTP Latency (ms)</th>
+                    <th>Total Time (ms)</th>
+                    <th>Up Time (s)</th>
+                    <th>WiFi RSSI</th>
+                    <th>TLS Handshake (ms)</th>
+                    <th>Status</th>
+                    <th>Free RAM</th>
+                    <th>Min Free RAM</th>
+                    <th>WiFi Reconnects</th>
+                    <th>Error</th>
+                    <th>Error Type</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function updateLiveStatus() {
+            try {
+                const res = await fetch('/arduino/rfid-latest/');
+                const data = await res.json();
+
+                if (data && data.created_at) {
+                    const now = new Date();
+                    const scanTime = new Date(data.created_at);
+                    const diff = (now - scanTime) / 1000;
+
+                    if (diff < 5) {
+                        document.getElementById('liveStatus').innerText =
+                            `RFID scanned! Status: (${data.status})`;
+                        document.getElementById('liveStatus').style.color = "green";
+                    } else {
+                        document.getElementById('liveStatus').innerText = "No recent scan";
+                        document.getElementById('liveStatus').style.color = "red";
+                    }
+                }
+            } catch(err) {
+                document.getElementById('liveStatus').innerText = "Error fetching live status";
+                document.getElementById('liveStatus').style.color = "red";
+            }
+        }
+
+        setInterval(updateLiveStatus, 2000);
+        updateLiveStatus();
+
+        async function loadRFIDTable() {
+            const testID = document.getElementById("test_id").value;
+
+            if (!testID) {
+                alert("Please enter a Test ID");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/arduino/rfid-measurements/?test_id=${testID}`);
+                const data = await res.json();
+
+                const tableBody = document.querySelector("#rfidTable tbody");
+                tableBody.innerHTML = "";
+
+                data.forEach(row => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML =
+                        `<td>${row.platform}</td>` +
+                        `<td>${row.test_id}</td>` +
+                        `<td>${row.rfid_reaction_time ? row.rfid_reaction_time.toFixed(2) : "-"}</td>` +
+                        `<td>${row.http_latency ? row.http_latency.toFixed(2) : "-"}</td>` +
+                        `<td>${row.total_time ? row.total_time.toFixed(2) : "-"}</td>` +
+                        `<td>${row.up_time ? row.up_time.toFixed(2) : "-"}</td>` +
+                        `<td>${row.wifi_rssi !== null ? row.wifi_rssi : "-"}</td>` +
+                        `<td>${row.tls_handshake_time ? row.tls_handshake_time.toFixed(2) : "-"}</td>` +
+                        `<td>${row.status}</td>` +
+                        `<td>${row.free_ram !== null ? row.free_ram : "-"}</td>` +
+                        `<td>${row.min_free_ram !== null ? row.min_free_ram : "-"}</td>` +
+                        `<td>${row.wifi_reconnects !== null ? row.wifi_reconnects : "-"}</td>` +
+                        `<td>${row.error ? "Yes" : "No"}</td>` +
+                        `<td>${row.error_type || "-"}</td>` +
+                        `<td>${row.created_at}</td>`;
+                    tableBody.appendChild(tr);
+                });
+
+            } catch (err) {
+                alert("Failed to load RFID measurements");
+            }
+        }
+    </script>
+</body>
+</html>

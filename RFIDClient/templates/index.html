@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UNO R4 WiFi Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e5e7eb;
+  text-align: center;
+  margin-top: 60px;
+}
+
+h1 {
+  font-size: 2rem;
+}
+
+h2 {
+  font-size: 3rem;
+  color: #22c55e;
+}
+
+.container {
+  margin-top: 40px;
+}
+
+input {
+  padding: 8px;
+  margin: 5px;
+  width: 120px;
+}
+
+button {
+  padding: 10px 20px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+.result {
+  margin-top: 20px;
+  font-size: 1.2rem;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>UNO R4 WiFi Live Temperature</h1>
+
+<h2 id="temp">Waiting for data...</h2>
+
+<div class="container">
+
+<h3>Stress Test</h3>
+
+<label>Clients:</label>
+<input id="clients" type="number" value="1">
+
+<label>Requests per client:</label>
+<input id="requests" type="number" value="50">
+
+<br><br>
+
+<button onclick="runStress()">Run Stress Test</button>
+
+<div id="stressResult" class="result"></div>
+
+</div>
+
+<script>
+
+    async function updateTemp() {
+
+      try {
+
+        const res = await fetch('/arduino/temperature/latest/');
+        const data = await res.json();
+
+        document.getElementById('temp').innerText =
+          data.temperature !== null && data.temperature !== undefined
+            ? data.temperature.toFixed(1) + " °C"
+            : "No data yet";
+
+      }
+
+      catch (err) {
+
+        document.getElementById('temp').innerText = "Connection error";
+
+      }
+
+    }
+
+    //let intervalId = setInterval(updateTemp, 1000);
+    //updateTemp();
+
+    async function runStress() {
+      clearInterval(intervalId);
+
+      const clients = document.getElementById("clients").value;
+      const requests = document.getElementById("requests").value;
+
+      document.getElementById("stressResult").innerText =
+        "Running stress test...";
+
+      try {
+
+        const res = await fetch('/arduino/stress-test/', {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            clients: clients,
+            requests: requests
+          })
+
+        });
+
+        const data = await res.json();
+
+        document.getElementById("stressResult").innerText =
+          "Total requests: " + data.requests_total + "\n" +
+          "Average latency: " + data.avg_latency.toFixed(2) + " ms\n" +
+          "Min latency: " + data.min_latency.toFixed(2) + " ms\n" +
+          "Max latency: " + data.max_latency.toFixed(2) + " ms\n" +
+          "Requests/sec: " + data.req_per_sec.toFixed(2) + "\n" +
+          "Errors: " + data.errors;
+
+        let intervalId = setInterval(updateTemp, 1000);
+
+      }
+
+      catch (err) {
+
+        document.getElementById("stressResult").innerText =
+          "Stress test failed";
+
+        let intervalId = setInterval(updateTemp, 1000);
+
+      }
+
+    }
+
+</script>
+
+</body>
+</html>

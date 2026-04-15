@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RFID Login</title>
+</head>
+<body>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Enter username">
+      <button type="submit">Start Login</button>
+    </form>
+
+    <div id="feedback"></div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById('loginForm');
+    const feedback = document.getElementById('feedback');
+
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+
+        fetch('/api/login/request/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+
+        const interval = setInterval(() => {
+            fetch(`/api/login/status/?username=${username}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === 'waiting') {
+                        feedback.innerText = 'Waiting for card...';
+                    } else if(data.status === 'success') {
+                        feedback.innerText = '✅ Login successful!';
+                        clearInterval(interval);
+                        window.location.href = "{% url 'dashboard' %}";
+                    } else if(data.status === 'mismatch') {
+                        feedback.innerText = '❌ Card not recognized';
+                        clearInterval(interval);
+                    } else {
+                        feedback.innerText = 'No request found';
+                    }
+                });
+        }, 1000);
+    });
+});
+
+    </script>
+</body>
+</html>
