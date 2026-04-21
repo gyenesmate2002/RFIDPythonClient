@@ -7,7 +7,8 @@ from .models import (
     RFIDRequestLog,
     IoTStressTestSummary,
     IoTSimulationSummary,
-    IoTRequestLog
+    IoTRequestLog,
+    User
 )
 from .serializer import (
     RFIDRequestLogSerializer,
@@ -22,6 +23,7 @@ from .stress_test import run_stress_test
 
 ALLOWED_UID = "23E661F5"
 IOT_TEST_ARDUINO_URL = "http://192.168.0.89/benchmark"
+IOT_TEST_ESP_URL = "http://192.168.0.108/benchmark"
 
 LAST_SCAN_FOR_FRONTEND = None
 
@@ -39,7 +41,7 @@ def rfid_scan(request):
     if uid is None:
         return Response(status=400, headers={"X-Status": "error"})
 
-    status = "accepted" if uid == ALLOWED_UID else "denied"
+    status = "accepted" if User.objects.filter(rfid_uid=uid).exists() else "denied"
 
     LAST_SCAN_FOR_FRONTEND = {
         "status": status,
@@ -122,11 +124,17 @@ def iot_stress_test(request):
     """
 
     platform = request.data.get("platform", "arduino_r4")
+
+    if platform == "esp32":
+        target_url = IOT_TEST_ESP_URL
+    else:
+        target_url = IOT_TEST_ARDUINO_URL
+
     test_id = request.data.get("test_id", f"stress_test_{timezone.now().isoformat()}")
     clients = int(request.data.get("clients", 1))
     req_per_client = int(request.data.get("requests", 50))
 
-    result = run_stress_test(IOT_TEST_ARDUINO_URL, clients, req_per_client)
+    result = run_stress_test(target_url, clients, req_per_client)
 
     if result is None:
         return Response({
@@ -221,12 +229,18 @@ def iot_simulation_test(request):
     """
 
     platform = request.data.get("platform", "arduino_r4")
+
+    if platform == "esp32":
+        target_url = IOT_TEST_ESP_URL
+    else:
+        target_url = IOT_TEST_ARDUINO_URL
+
     test_id = request.data.get("test_id", f"simulation_test_{timezone.now().isoformat()}")
     devices = int(request.data.get("devices", 50))
     interval = float(request.data.get("interval", 5))
     duration = int(request.data.get("duration", 300))
 
-    result = run_iot_simulation(IOT_TEST_ARDUINO_URL, devices, interval, duration)
+    result = run_iot_simulation(target_url, devices, interval, duration)
 
     if result is None:
         return Response({

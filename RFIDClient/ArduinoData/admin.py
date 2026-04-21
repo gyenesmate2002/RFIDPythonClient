@@ -7,7 +7,8 @@ from .models import (
     RFIDRequestLog,
     IoTRequestLog,
     IoTSimulationSummary,
-    IoTStressTestSummary
+    IoTStressTestSummary,
+    User
 )
 
 
@@ -71,6 +72,11 @@ def delete_all(modeladmin, request, queryset):
 delete_all.short_description = "⚠️ Delete ALL records"
 
 
+class UserAdmin(admin.ModelAdmin):
+    list_display = _get_field_names(User)
+    actions = [export_as_csv, export_all_as_csv, delete_all]
+
+
 class RFIDRequestLogAdmin(admin.ModelAdmin):
     list_display = _get_field_names(RFIDRequestLog)
     actions = [export_as_csv, export_all_as_csv, delete_all]
@@ -92,6 +98,7 @@ class IoTStressTestSummaryAdmin(admin.ModelAdmin):
 
 
 # Register your models here.
+admin.site.register(User, UserAdmin)
 admin.site.register(RFIDRequestLog, RFIDRequestLogAdmin)
 admin.site.register(IoTRequestLog, IoTRequestLogAdmin)
 admin.site.register(IoTSimulationSummary, IoTSimulationSummaryAdmin)

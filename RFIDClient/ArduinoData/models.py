@@ -2,6 +2,14 @@ from django.db import models
 
 
 # -------------------------------
+# Model for User
+# -------------------------------
+class User(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    rfid_uid = models.CharField(max_length=32, unique=True)
+
+
+# -------------------------------
 # Model for RFIDRequestLog
 # -------------------------------
 class RFIDRequestLog(models.Model):
