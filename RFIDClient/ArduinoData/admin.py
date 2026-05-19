@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.http import HttpResponse
 import csv
 from datetime import datetime
+from django.utils import timezone
+from datetime import timedelta
 
 from .models import (
     RFIDRequestLog,
@@ -72,6 +74,31 @@ def delete_all(modeladmin, request, queryset):
 delete_all.short_description = "⚠️ Delete ALL records"
 
 
+def delete_yesterday(modeladmin, request, queryset):
+    """
+    Deletes all records created yesterday (00:00–23:59).
+    """
+    now = timezone.now()
+
+    # Start of today
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Start and end of yesterday
+    yesterday_start = today_start - timedelta(days=1)
+    yesterday_end = today_start
+
+    # Change 'created_at' to your actual datetime field
+    modeladmin.model.objects.filter(
+        created_at__gte=yesterday_start,
+        created_at__lt=yesterday_end
+    ).delete()
+
+    modeladmin.message_user(request, "Yesterday's records deleted.")
+
+
+delete_yesterday.short_description = "Delete yesterday's records"
+
+
 class UserAdmin(admin.ModelAdmin):
     list_display = _get_field_names(User)
     actions = [export_as_csv, export_all_as_csv, delete_all]
@@ -84,7 +111,7 @@ class RFIDRequestLogAdmin(admin.ModelAdmin):
 
 class IoTRequestLogAdmin(admin.ModelAdmin):
     list_display = _get_field_names(IoTRequestLog)
-    actions = [export_as_csv, export_all_as_csv, delete_all]
+    actions = [export_as_csv, export_all_as_csv, delete_all, delete_yesterday]
 
 
 class IoTSimulationSummaryAdmin(admin.ModelAdmin):
